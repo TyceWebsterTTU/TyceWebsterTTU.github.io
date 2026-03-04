@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head> 
+    <meta charset="UTF-8"> 
+    <meta http-equiv="X-UA-Compatible" content="IE=edge"> 
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
+    <meta name="apple-mobile-web-app-capable" content="yes"> 
+    <meta name="apple-mobile-web-app-status-bar-style" content="black"> 
+
+    <title>Weather App</title> 
+    <link rel="icon" type="image/x-icon" href="/images/favicon.ico"> 
+    <link rel="apple-touch-icon" href="images/apple-touch-icon-iphone-60x60.png"> 
+    <link rel="apple-touch-icon" sizes="60x60" href="images/apple-touch-icon-ipad-76x76.png"> 
+    <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-iphone-retina-120x120.png"> 
+    <link rel="apple-touch-icon" sizes="144x144" href="images/apple-touch-icon-ipad-retina-152x152.png"> 
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous"> 
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css"> 
+</head>
+<body class="bg-dark">
+    <div class="col-12 d-flex justify-content-center min-vh-100 align-items-center">
+        <div class="card col-11 col-md-4 col-lg-4">
+            <div class="card-header fw-bold text-center"><h1>Current Weather</h1></div>
+            <div class="card-body">
+                <div class="row align-items-stretch">
+                    <div class="col-md-6 text-center border-end d-flex flex-column justify-content-center">
+                        <span class="text-danger"><i class="bi bi-geo-alt-fill fs-1"></i></span>
+                        <h4 id="strCurrentLocation"></h4>
+                    </div>
+                    <div class="col-md-6 text-center">
+                        <div class="fw-bold text-center">
+                            <h4>Current Conditions</h4>
+                            <div>
+                                <i id="objConditionIcon" class="bi"></i>
+                            </div>
+                            <h4 id="strCurrentConditions"></h4>
+                        </div>
+                        <hr />
+                        <div class="row justify-content-center mt-2">
+                            <h4 class="col-md-5 d-flex align-items-center justify-content-center">
+                                <i class="bi bi-thermometer-half text-warning"></i>
+                                <span id="strCurrentTemp"></span>
+                            </h4>
+                            <h4 class="col-md-5 d-flex align-items-center justify-content-center gap-2">
+                                <i class="bi bi-moisture text-primary"></i>
+                                <span id="strCurrentHumid"></span>
+                            </h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
+    <script>
+        const strOpenMeteoUrl = "https://api.open-meteo.com/v1/forecast"
+
+        getLocation()
+
+        function getLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(showPosition, showError)
+            } else {
+                strGetCurrentLocation.innerHTML = "Geolocation is not supported by this browser."
+            }
+        }
+
+        function showPosition(currPosition) {
+            const intLatitude = currPosition.coords.latitude
+            const intLongitude = currPosition.coords.longitude
+
+            getWeather(intLatitude, intLongitude)
+        }
+
+        async function getLocationName(intLatitude, intLongitude) {
+            const strOpenStreetMapsURL = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${intLatitude}&lon=${intLongitude}`
+            try {
+                const objFetchResponse = await fetch(strOpenStreetMapsURL)
+                const objFetchResponseData = await objFetchResponse.json()
+
+                return objFetchResponseData.address.city
+            } catch (error) {
+                console.error("Location Error:", error)
+            }
+        }
+
+        function showError(error) {
+            switch(error.code) {
+            case error.PERMISSION_DENIED:
+            strGetCurrentLocation.innerHTML = "User denied the request for Geolocation."
+            break;
+            case error.POSITION_UNAVAILABLE:
+            strGetCurrentLocation.innerHTML = "Location information is unavailable."
+            break;
+            case error.TIMEOUT:
+            strGetCurrentLocation.innerHTML = "The request to get user location timed out."
+            break;
+            case error.UNKNOWN_ERROR:
+            strGetCurrentLocation.innerHTML = "An unknown error occurred."
+            break;
+        }
+        }
+
+        async function getWeather(intLatitude, intLongitude) {
+            try {
+                strCityName = await getLocationName(intLatitude, intLongitude)
+                const objFetchResponse = await fetch(strOpenMeteoUrl + `?latitude=${intLatitude}&longitude=${intLongitude}&current=temperature_2m,relative_humidity_2m,weather_code&temperature_unit=fahrenheit`, {
+                    method: "GET",
+                    headers: {
+                        'Content-Type': 'applications/json'
+                    }
+                })
+                const objFetchResponseData = await objFetchResponse.json()
+
+                document.getElementById('strCurrentLocation').textContent = `${strCityName}`
+
+                const objConditionData = getWeatherCondition(objFetchResponseData.current.weather_code)
+                document.getElementById('strCurrentConditions').textContent = objConditionData.label
+
+                const objIcon = document.getElementById('objConditionIcon')
+                if (objIcon) {
+                    objIcon.className = `bi ${objConditionData.icon} fs-1`
+                }
+
+                document.getElementById('strCurrentTemp').textContent = `${objFetchResponseData.current.temperature_2m}°F`
+                document.getElementById('strCurrentHumid').textContent = `${objFetchResponseData.current.relative_humidity_2m}%`
+            } catch (error) {
+                console.error("Failed getting weather data:", error)
+            }
+        }
+
+        function getWeatherCondition(intWeatherCode) {
+            const strCodeDescription = {
+                0: {description: "Clear Sky", icon: "bi-sun"},
+                1: {description: "Mainly Clear", icon: "bi-cloud-sun"},
+                2: { label: "Partly Cloudy", icon: "bi-cloud-sun" },
+                3: { label: "Overcast", icon: "bi-clouds" },
+                45: { label: "Fog", icon: "bi-cloud-fog" },
+                48: { label: "Rime Fog", icon: "bi-cloud-fog2" },
+                51: { label: "Light Drizzle", icon: "bi-cloud-drizzle" },
+                61: { label: "Slight Rain", icon: "bi-cloud-rain" },
+                63: { label: "Moderate Rain", icon: "bi-cloud-rain" },
+                65: { label: "Heavy Rain", icon: "bi-cloud-rain-heavy" },
+                71: { label: "Slight Snow", icon: "bi-cloud-snow" },
+                73: { label: "Moderate Snow", icon: "bi-cloud-snow" },
+                75: { label: "Heavy Snow", icon: "bi-snow" },
+                77: { label: "Snow Grains", icon: "bi-snow2" },
+                80: { label: "Rain Showers", icon: "bi-cloud-rain" },
+                95: { label: "Thunderstorm", icon: "bi-cloud-lightning-rain" },
+                96: { label: "Thunderstorm/Hail", icon: "bi-cloud-hail" },
+                99: { label: "Thunderstorm/Heavy Hail", icon: "bi-cloud-hail" }
+            }
+            return strCodeDescription[intWeatherCode]
+        }
+    </script>
+</body>
+</html>
