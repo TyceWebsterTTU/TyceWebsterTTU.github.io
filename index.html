@@ -22,24 +22,27 @@
             <div class="card-header fw-bold text-center"><h1>Current Weather</h1></div>
             <div class="card-body">
                 <div class="row align-items-stretch">
+                    <!--Displays the current location of the user automatically after the user allows the browser to share their location-->
                     <div class="col-md-6 text-center border-end d-flex flex-column justify-content-center">
                         <span class="text-danger"><i class="bi bi-geo-alt-fill fs-1"></i></span>
-                        <h4 id="strCurrentLocation"></h4>
+                        <h4 id="strCurrentLocation">Loading Data...</h4>
                     </div>
+                    <!--Displays the current weather condition and the associating icon-->
                     <div class="col-md-6 text-center">
                         <div class="fw-bold text-center">
                             <i id="objConditionIcon" class="bi"></i>
-                            <h4 id="strCurrentConditions"></h4>
+                            <h4 id="strCurrentConditions">Loading Data...</h4>
                         </div>
                         <hr />
+                        <!--Displays the current temperature and humidity-->
                         <div class="row justify-content-center mt-2">
                             <h4 class="col-md-5 d-flex align-items-center justify-content-center">
                                 <i class="bi bi-thermometer-half text-warning"></i>
-                                <span id="strCurrentTemp"></span>
+                                <span id="strCurrentTemp">Loading Data...</span>
                             </h4>
                             <h4 class="col-md-5 d-flex align-items-center justify-content-center gap-2">
                                 <i class="bi bi-moisture text-primary"></i>
-                                <span id="strCurrentHumid"></span>
+                                <span id="strCurrentHumid">Loading Data...</span>
                             </h4>
                         </div>
                     </div>
@@ -49,10 +52,12 @@
     </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
     <script>
+        // Structure of the API call that our fetch will use consistently in the app
         const strOpenMeteoUrl = "https://api.open-meteo.com/v1/forecast"
 
         getLocation()
 
+        // This function uses the geolocation API to find the users location and if there is any errors it'll move to the showError() function
         function getLocation() {
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(showPosition, showError)
@@ -61,45 +66,38 @@
             }
         }
 
+        // This function uses the geolocation API to find the specific cordinates of the user
         function showPosition(currPosition) {
             const intLatitude = currPosition.coords.latitude
             const intLongitude = currPosition.coords.longitude
-
+            // Calls the getWeather function and sends the users coordinates into it to accurately get the weather conditions.
             getWeather(intLatitude, intLongitude)
         }
 
+        // This function utilizes the Open Street Maps API to find the location of the city the user is in based on the coordinates sent
         async function getLocationName(intLatitude, intLongitude) {
+            // Open Street Maps API with the latitude and longitude arguments in the URL
             const strOpenStreetMapsURL = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${intLatitude}&lon=${intLongitude}`
             try {
+                // Fetches the data from the URL and puts that data into a json format
                 const objFetchResponse = await fetch(strOpenStreetMapsURL)
                 const objFetchResponseData = await objFetchResponse.json()
 
+                // Returns the specific city that was fetched from the URL
                 return objFetchResponseData.address.city
             } catch (error) {
                 console.error("Location Error:", error)
             }
         }
 
-        function showError(error) {
-            switch(error.code) {
-            case error.PERMISSION_DENIED:
-            strGetCurrentLocation.innerHTML = "User denied the request for Geolocation."
-            break;
-            case error.POSITION_UNAVAILABLE:
-            strGetCurrentLocation.innerHTML = "Location information is unavailable."
-            break;
-            case error.TIMEOUT:
-            strGetCurrentLocation.innerHTML = "The request to get user location timed out."
-            break;
-            case error.UNKNOWN_ERROR:
-            strGetCurrentLocation.innerHTML = "An unknown error occurred."
-            break;
-        }
-        }
-
+        // Gets the current weather conditions utilizing the coordinates being passed as a arguement 
         async function getWeather(intLatitude, intLongitude) {
             try {
+                // Sets this variable to whatever city is returned from the getLocationName function
                 strCityName = await getLocationName(intLatitude, intLongitude)
+
+                // The main fetch of the webpage to pull from the Open Meteo API where it parses the data as a json object
+                // The data being pulled is the current weather codes, temperature, and humidity of the specific location the user is in
                 const objFetchResponse = await fetch(strOpenMeteoUrl + `?latitude=${intLatitude}&longitude=${intLongitude}&current=temperature_2m,relative_humidity_2m,weather_code&temperature_unit=fahrenheit`, {
                     method: "GET",
                     headers: {
@@ -108,11 +106,13 @@
                 })
                 const objFetchResponseData = await objFetchResponse.json()
 
+                // Connects HTML to my javascript functions where it sets the different IDs I made in my HTML to the parsed data fetched from the URL
                 document.getElementById('strCurrentLocation').textContent = `${strCityName}`
 
+                // Calls the getWeatherCondition function and sets whaterver is returned to it as the weather condition to be displayed on the app
                 const objConditionData = getWeatherCondition(objFetchResponseData.current.weather_code)
-                document.getElementById('strCurrentConditions').textContent = objConditionData.label
-
+                document.getElementById('strCurrentConditions').textContent = objConditionData.description
+                // Specifically matches the weather icon with the weather condition pulled from the objConditionData
                 const objIcon = document.getElementById('objConditionIcon')
                 if (objIcon) {
                     objIcon.className = `bi ${objConditionData.icon} fs-1`
@@ -125,28 +125,49 @@
             }
         }
 
+        // This function is the master list of the weather codes being pulled from the Open Meteo API and sets those codes to a specific condition description and icon
         function getWeatherCondition(intWeatherCode) {
+            // All codes being passed (They follow WMO Weather Interpretation Codes (WW))
             const strCodeDescription = {
                 0: {description: "Clear Sky", icon: "bi-sun"},
                 1: {description: "Mainly Clear", icon: "bi-cloud-sun"},
-                2: { label: "Partly Cloudy", icon: "bi-cloud-sun" },
-                3: { label: "Overcast", icon: "bi-clouds" },
-                45: { label: "Fog", icon: "bi-cloud-fog" },
-                48: { label: "Rime Fog", icon: "bi-cloud-fog2" },
-                51: { label: "Light Drizzle", icon: "bi-cloud-drizzle" },
-                61: { label: "Slight Rain", icon: "bi-cloud-rain" },
-                63: { label: "Moderate Rain", icon: "bi-cloud-rain" },
-                65: { label: "Heavy Rain", icon: "bi-cloud-rain-heavy" },
-                71: { label: "Slight Snow", icon: "bi-cloud-snow" },
-                73: { label: "Moderate Snow", icon: "bi-cloud-snow" },
-                75: { label: "Heavy Snow", icon: "bi-snow" },
-                77: { label: "Snow Grains", icon: "bi-snow2" },
-                80: { label: "Rain Showers", icon: "bi-cloud-rain" },
-                95: { label: "Thunderstorm", icon: "bi-cloud-lightning-rain" },
-                96: { label: "Thunderstorm/Hail", icon: "bi-cloud-hail" },
-                99: { label: "Thunderstorm/Heavy Hail", icon: "bi-cloud-hail" }
+                2: { description: "Partly Cloudy", icon: "bi-cloud-sun" },
+                3: { description: "Overcast", icon: "bi-clouds" },
+                45: { description: "Fog", icon: "bi-cloud-fog" },
+                48: { description: "Rime Fog", icon: "bi-cloud-fog2" },
+                51: { description: "Light Drizzle", icon: "bi-cloud-drizzle" },
+                61: { description: "Slight Rain", icon: "bi-cloud-rain" },
+                63: { description: "Moderate Rain", icon: "bi-cloud-rain" },
+                65: { description: "Heavy Rain", icon: "bi-cloud-rain-heavy" },
+                71: { description: "Slight Snow", icon: "bi-cloud-snow" },
+                73: { description: "Moderate Snow", icon: "bi-cloud-snow" },
+                75: { description: "Heavy Snow", icon: "bi-snow" },
+                77: { description: "Snow Grains", icon: "bi-snow2" },
+                80: { description: "Rain Showers", icon: "bi-cloud-rain" },
+                95: { description: "Thunderstorm", icon: "bi-cloud-lightning-rain" },
+                96: { description: "Thunderstorm/Hail", icon: "bi-cloud-hail" },
+                99: { description: "Thunderstorm/Heavy Hail", icon: "bi-cloud-hail" }
             }
+            // Returns the associated information about the code being passed to the function
             return strCodeDescription[intWeatherCode]
+        }
+
+        // Function used to handle any errors if the getCurrentPosition function fails to get the user's location
+        function showError(error) {
+            switch(error.code) {
+                case error.PERMISSION_DENIED:
+                strGetCurrentLocation.innerHTML = "User denied the request for Geolocation."
+                break;
+                case error.POSITION_UNAVAILABLE:
+                strGetCurrentLocation.innerHTML = "Location information is unavailable."
+                break;
+                case error.TIMEOUT:
+                strGetCurrentLocation.innerHTML = "The request to get user location timed out."
+                break;
+                case error.UNKNOWN_ERROR:
+                strGetCurrentLocation.innerHTML = "An unknown error occurred."
+                break;
+            }
         }
     </script>
 </body>
